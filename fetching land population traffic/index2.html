@@ -1,0 +1,1961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Enhanced Land Use Finder</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<style>
+    * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    }
+
+    body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #0f2027 0%, #203a43 25%, #2c5364 50%, #006400 75%, #228B22 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: backgroundShift 20s ease-in-out infinite;
+    }
+
+    @keyframes backgroundShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    }
+
+    .container {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    box-shadow: 
+        0 25px 50px rgba(0, 100, 0, 0.3),
+        0 0 0 1px rgba(255, 255, 255, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    border: 2px solid rgba(0, 100, 0, 0.2);
+    padding: 30px;
+    width: 100%;
+    max-width: 1200px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    }
+
+    .container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #006400, #32CD32, #00FF00, #32CD32, #006400);
+    animation: shimmer 3s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+    0%, 100% { transform: translateX(-100%); }
+    50% { transform: translateX(100%); }
+    }
+
+    .container:hover {
+    transform: translateY(-5px);
+    box-shadow: 
+        0 35px 70px rgba(0, 100, 0, 0.4),
+        0 0 0 1px rgba(255, 255, 255, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    }
+
+    .header {
+    text-align: center;
+    margin-bottom: 30px;
+    border-bottom: 3px solid transparent;
+    background: linear-gradient(90deg, #006400, #32CD32) padding-box,
+                linear-gradient(90deg, #006400, #32CD32, #00FF00) border-box;
+    border-image: linear-gradient(90deg, #006400, #32CD32, #00FF00) 1;
+    padding-bottom: 20px;
+    position: relative;
+    }
+
+    .header h1 {
+    color: #006400;
+    font-size: 2.8rem;
+    font-weight: 800;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 4px rgba(0, 100, 0, 0.2);
+    background: linear-gradient(45deg, #006400, #32CD32, #00FF00);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: titleGlow 4s ease-in-out infinite;
+    }
+
+    @keyframes titleGlow {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.2); }
+    }
+
+    .header p {
+    color: #2F4F2F;
+    font-size: 1.2rem;
+    font-weight: 500;
+    }
+
+    .pso-logo {
+    background: linear-gradient(135deg, #006400, #228B22);
+    color: white;
+    padding: 10px 25px;
+    border-radius: 30px;
+    font-weight: 700;
+    font-size: 1rem;
+    margin: 15px auto;
+    display: inline-block;
+    letter-spacing: 1.5px;
+    box-shadow: 0 8px 20px rgba(0, 100, 0, 0.3);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    }
+
+    .pso-logo::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.6s;
+    }
+
+    .pso-logo:hover::before {
+    left: 100%;
+    }
+
+    .pso-logo:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 12px 30px rgba(0, 100, 0, 0.4);
+    }
+
+    .search-section {
+    background: linear-gradient(145deg, rgba(248, 255, 248, 0.9), rgba(240, 248, 240, 0.9));
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 25px;
+    border: 2px solid rgba(144, 238, 144, 0.6);
+    box-shadow: 
+        inset 0 2px 4px rgba(0, 100, 0, 0.1),
+        0 4px 15px rgba(0, 100, 0, 0.1);
+    transition: all 0.3s ease;
+    }
+
+    .search-section:hover {
+    border-color: rgba(0, 100, 0, 0.8);
+    box-shadow: 
+        inset 0 2px 4px rgba(0, 100, 0, 0.15),
+        0 8px 25px rgba(0, 100, 0, 0.2);
+    }
+
+    .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto auto;
+    gap: 15px;
+    align-items: end;
+    }
+
+    .input-group {
+    position: relative;
+    }
+
+    .input-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #006400;
+    font-weight: 700;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    }
+
+    .input-group input {
+    width: 100%;
+    padding: 14px 18px;
+    border: 2px solid rgba(144, 238, 144, 0.8);
+    border-radius: 10px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.95);
+    color: #2F4F2F;
+    font-weight: 500;
+    }
+
+    .input-group input:focus {
+    outline: none;
+    border-color: #006400;
+    box-shadow: 
+        0 0 0 4px rgba(0, 100, 0, 0.15),
+        0 4px 15px rgba(0, 100, 0, 0.2);
+    transform: translateY(-2px);
+    background: white;
+    }
+
+    .btn {
+    padding: 14px 25px;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    position: relative;
+    overflow: hidden;
+    min-width: 140px;
+    }
+
+    .search-btn {
+    background: linear-gradient(135deg, #006400, #228B22, #32CD32);
+    color: white;
+    box-shadow: 0 6px 20px rgba(0, 100, 0, 0.3);
+    }
+
+    .search-btn:hover {
+    background: linear-gradient(135deg, #228B22, #32CD32, #00FF00);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(0, 100, 0, 0.4);
+    }
+
+    .fuel-btn {
+    background: linear-gradient(135deg, #FF6B6B, #FF8E53, #FF6B9D);
+    color: white;
+    box-shadow: 0 6px 20px rgba(255, 107, 107, 0.3);
+    }
+
+    .fuel-btn:hover {
+    background: linear-gradient(135deg, #FF8E53, #FF6B9D, #C44569);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(255, 107, 107, 0.4);
+    }
+
+    .btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.5s;
+    }
+
+    .btn:hover::before {
+    left: 100%;
+    }
+
+    .btn:active {
+    transform: translateY(-1px);
+    }
+
+    .quick-locations {
+    margin-bottom: 20px;
+    }
+
+    .quick-locations h3 {
+    color: #006400;
+    margin-bottom: 15px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    }
+
+    .location-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    }
+
+    .location-chip {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 255, 248, 0.9));
+    border: 2px solid rgba(144, 238, 144, 0.8);
+    border-radius: 25px;
+    padding: 10px 20px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #006400;
+    backdrop-filter: blur(5px);
+    }
+
+    .location-chip:hover {
+    border-color: #006400;
+    background: linear-gradient(135deg, #006400, #228B22);
+    color: white;
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 8px 20px rgba(0, 100, 0, 0.3);
+    }
+
+    .map-container {
+    position: relative;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 
+        0 15px 40px rgba(0, 100, 0, 0.3),
+        0 0 0 3px rgba(255, 255, 255, 0.2),
+        inset 0 2px 0 rgba(255, 255, 255, 0.1);
+    background: #f8fff8;
+    min-height: 500px;
+    border: 3px solid rgba(0, 100, 0, 0.3);
+    transition: all 0.3s ease;
+    }
+
+    .map-container:hover {
+    box-shadow: 
+        0 20px 50px rgba(0, 100, 0, 0.4),
+        0 0 0 3px rgba(255, 255, 255, 0.3),
+        inset 0 2px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    #map {
+    height: 500px;
+    width: 100%;
+    border-radius: 17px;
+    }
+
+    .controls-panel {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    }
+
+    .control-btn {
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid rgba(0, 100, 0, 0.3);
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #006400;
+    backdrop-filter: blur(10px);
+    }
+
+    .control-btn:hover {
+    background: #006400;
+    color: white;
+    box-shadow: 0 4px 15px rgba(0, 100, 0, 0.3);
+    }
+
+    .control-btn.active {
+    background: #006400;
+    color: white;
+    }
+
+    .distance-info {
+    position: absolute;
+    bottom: 15px;
+    left: 15px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid rgba(0, 100, 0, 0.3);
+    border-radius: 10px;
+    padding: 10px 15px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #006400;
+    backdrop-filter: blur(10px);
+    min-width: 200px;
+    }
+
+    .fuel-stations-panel {
+    background: linear-gradient(145deg, rgba(255, 248, 248, 0.95), rgba(255, 240, 240, 0.95));
+    border: 2px solid rgba(255, 107, 107, 0.3);
+    border-radius: 15px;
+    padding: 20px;
+    margin-top: 20px;
+    display: none;
+    backdrop-filter: blur(10px);
+    }
+
+    .fuel-stations-panel.show {
+    display: block;
+    animation: slideInUp 0.4s ease;
+    }
+
+    @keyframes slideInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+    }
+
+    .fuel-stations-title {
+    color: #C44569;
+    font-weight: 700;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 1.1rem;
+    }
+
+    .fuel-stations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 15px;
+    }
+
+    .fuel-station-item {
+    background: white;
+    border: 2px solid rgba(255, 107, 107, 0.2);
+    border-radius: 10px;
+    padding: 15px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    }
+
+    .fuel-station-item:hover {
+    border-color: #FF6B6B;
+    box-shadow: 0 5px 20px rgba(255, 107, 107, 0.2);
+    transform: translateY(-2px);
+    }
+
+    .fuel-station-name {
+    font-weight: 700;
+    color: #C44569;
+    margin-bottom: 5px;
+    }
+
+    .fuel-station-distance {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #FF6B6B;
+    margin-bottom: 5px;
+    }
+
+    .fuel-station-coords {
+    font-size: 0.8rem;
+    color: #666;
+    font-family: 'Courier New', monospace;
+    }
+
+    .loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #006400;
+    font-size: 1.2rem;
+    font-weight: 700;
+    z-index: 1000;
+    text-align: center;
+    }
+
+    .spinner {
+    border: 4px solid rgba(144, 238, 144, 0.3);
+    border-top: 4px solid #006400;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 15px;
+    }
+
+    @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+    }
+
+    .info-panel {
+    background: linear-gradient(145deg, rgba(248, 255, 248, 0.95), rgba(240, 248, 240, 0.95));
+    border-radius: 15px;
+    padding: 25px;
+    margin-top: 25px;
+    border: 2px solid rgba(144, 238, 144, 0.6);
+    display: none;
+    box-shadow: 0 8px 25px rgba(0, 100, 0, 0.15);
+    backdrop-filter: blur(10px);
+    }
+
+    .info-panel.show {
+    display: block;
+    animation: slideIn 0.4s ease;
+    }
+
+    .info-panel h3 {
+    color: #006400;
+    font-weight: 800;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 1.3rem;
+    }
+
+    @keyframes slideIn {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+    }
+
+    .coordinate-display {
+    background: white;
+    border: 2px solid rgba(144, 238, 144, 0.8);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 15px;
+    box-shadow: 0 4px 15px rgba(0, 100, 0, 0.1);
+    }
+
+    .coordinate-row {
+    display: flex;
+    justify-content: space-between;
+    margin: 10px 0;
+    align-items: center;
+    }
+
+    .coordinate-label {
+    font-weight: 700;
+    color: #006400;
+    }
+
+    .coordinate-value {
+    color: #2F4F2F;
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    }
+
+    .land-use-section, .population-section, .traffic-section {
+    background: white;
+    border: 2px solid rgba(144, 238, 144, 0.8);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
+    box-shadow: 0 4px 15px rgba(0, 100, 0, 0.1);
+    }
+
+    .error-message, .success-message {
+    padding: 15px;
+    border-radius: 10px;
+    margin: 15px 0;
+    font-weight: 600;
+    display: none;
+    }
+
+    .error-message {
+    background: linear-gradient(135deg, #ffebee, #ffcdd2);
+    border: 2px solid #f44336;
+    color: #c62828;
+    }
+
+    .success-message {
+    background: linear-gradient(135deg, #e8f5e8, #c8e6c9);
+    border: 2px solid #4caf50;
+    color: #2e7d32;
+    }
+
+    .pso-branding {
+    text-align: center;
+    margin-top: 30px;
+    padding-top: 25px;
+    border-top: 3px solid rgba(144, 238, 144, 0.8);
+    color: #2F4F2F;
+    font-size: 1rem;
+    font-weight: 600;
+    }
+
+    @media (max-width: 768px) {
+    .container {
+        padding: 20px;
+        margin: 10px;
+    }
+
+    .header h1 {
+        font-size: 2.2rem;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+
+    .btn {
+        width: 100%;
+    }
+
+    .location-chips {
+        justify-content: center;
+    }
+
+    #map {
+        height: 400px;
+    }
+
+    .controls-panel {
+        position: relative;
+        top: auto;
+        right: auto;
+        flex-direction: row;
+        margin-bottom: 15px;
+    }
+
+    .fuel-stations-grid {
+        grid-template-columns: 1fr;
+    }
+    }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+    <h1>Enhanced Land Use Finder</h1>
+    <div class="pso-logo">PAKISTAN STATE OIL</div>
+    <p>Advanced GIS with Fuel Station Analysis</p>
+    </div>
+
+    <div class="search-section">
+    <div class="form-grid">
+        <div class="input-group">
+        <label for="lat">Latitude</label>
+        <input type="number" id="lat" step="any" placeholder="e.g. 24.8607" />
+        </div>
+        <div class="input-group">
+        <label for="lon">Longitude</label>
+        <input type="number" id="lon" step="any" placeholder="e.g. 67.0011" />
+        </div>
+        <button class="btn search-btn" onclick="loadMap()">
+        Search Location
+        </button>
+        <button class="btn fuel-btn" onclick="findFuelStations()">
+        Find Fuel Stations
+        </button>
+    </div>
+
+    <div class="quick-locations">
+        <h3>Quick Locations</h3>
+        <div class="location-chips">
+        <div class="location-chip" onclick="setLocation(24.8607, 67.0011)">Karachi</div>
+        <div class="location-chip" onclick="setLocation(31.5804, 74.3587)">Lahore</div>
+        <div class="location-chip" onclick="setLocation(33.6844, 73.0479)">Islamabad</div>
+        <div class="location-chip" onclick="setLocation(31.4504, 73.1350)">Faisalabad</div>
+        <div class="location-chip" onclick="setLocation(30.1798, 71.4924)">Multan</div>
+        <div class="location-chip" onclick="setLocation(25.3960, 68.3578)">Hyderabad</div>
+        </div>
+    </div>
+    </div>
+
+    <div class="error-message" id="errorMessage"></div>
+    <div class="success-message" id="successMessage"></div>
+
+    <div class="map-container">
+    <div class="controls-panel">
+        <button class="control-btn" id="landUseToggle" onclick="toggleLandUse()">Land Use</button>
+        <button class="control-btn" id="trafficToggle" onclick="toggleTraffic()">Traffic</button>
+        <button class="control-btn" id="fuelToggle" onclick="toggleFuelStations()">Fuel Stations</button>
+        <button class="control-btn" onclick="toggleSatellite()">Satellite</button>
+    </div>
+    <div class="distance-info" id="distanceInfo" style="display: none;">
+        Click on fuel stations to see distance
+    </div>
+    <div class="loading" id="loading" style="display: none;">
+        <div class="spinner"></div>
+        Loading geographic data...
+    </div>
+    <div id="map"></div>
+    </div>
+
+    <div class="fuel-stations-panel" id="fuelStationsPanel">
+    <div class="fuel-stations-title">Nearby Fuel Stations (1km radius)</div>
+    <div id="fuelStationsList"></div>
+    </div>
+
+    <div class="info-panel" id="infoPanel">
+    <h3>Location Information</h3>
+    <div id="locationInfo"></div>
+    </div>
+
+    <div class="pso-branding">
+    <strong>Pakistan State Oil Corporation Limited</strong><br>
+    Enhanced Geographic Information & Fuel Station Analysis System
+    </div>
+</div>
+
+<script>
+    let map;
+    let currentMarker;
+    let landUseLayer;
+    let trafficLayer;
+    let fuelStationsLayer;
+    let satelliteLayer;
+    let currentBaseLayer;
+    let showLandUse = true;
+    let showTraffic = true;
+    let showFuelStations = false;
+    let currentLocation = null;
+    let fuelStationsData = [];
+
+    function initMap() {
+    // Initialize map with Pakistan view
+    map = L.map('map', {
+        zoomControl: false,
+        attributionControl: false
+    }).setView([30.3753, 69.3451], 6);
+    
+    // Add custom zoom control
+    L.control.zoom({
+        position: 'bottomright'
+    }).addTo(map);
+
+    // Add attribution
+    L.control.attribution({
+        position: 'bottomleft',
+        prefix: false
+    }).addTo(map);
+    
+    // Default tile layer with enhanced styling
+    currentBaseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap | Pakistan State Oil',
+        maxZoom: 19
+    }).addTo(map);
+
+    // Satellite layer
+    satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '© Esri | Pakistan State Oil',
+        maxZoom: 19
+    });
+
+    // Initialize layer groups
+    landUseLayer = L.layerGroup().addTo(map);
+    trafficLayer = L.layerGroup().addTo(map);
+    fuelStationsLayer = L.layerGroup();
+    
+    // Add scale control
+    L.control.scale({
+        position: 'bottomleft',
+        metric: true,
+        imperial: false
+    }).addTo(map);
+
+    // Add click event to map
+    map.on('click', function(e) {
+        const lat = e.latlng.lat.toFixed(6);
+        const lon = e.latlng.lng.toFixed(6);
+        document.getElementById('lat').value = lat;
+        document.getElementById('lon').value = lon;
+        currentLocation = { lat: parseFloat(lat), lon: parseFloat(lon) };
+        addMarker(lat, lon);
+        showLocationInfo(lat, lon);
+        analyzeLandUse(lat, lon);
+        analyzeTraffic(lat, lon);
+        showSuccess('Location updated successfully');
+        
+        // Update distances to fuel stations if they are visible
+        if (showFuelStations && fuelStationsData.length > 0) {
+            updateFuelStationDistances();
+        }
+    });
+
+    // Add mouse move event for coordinates display
+    map.on('mousemove', function(e) {
+        updateDistanceInfo(e.latlng);
+    });
+    }
+
+    function loadMap() {
+    const lat = parseFloat(document.getElementById('lat').value);
+    const lon = parseFloat(document.getElementById('lon').value);
+    
+    if (isNaN(lat) || isNaN(lon)) {
+        showError('Please enter valid latitude and longitude values.');
+        return;
+    }
+
+    if (lat < -90 || lat > 90) {
+        showError('Latitude must be between -90 and 90 degrees.');
+        return;
+    }
+
+    if (lon < -180 || lon > 180) {
+        showError('Longitude must be between -180 and 180 degrees.');
+        return;
+    }
+
+    hideMessages();
+    showLoading(true);
+
+    // Initialize map if not already done
+    if (!map) {
+        initMap();
+    }
+
+    currentLocation = { lat, lon };
+
+    // Set map view to specified coordinates with smooth animation
+    map.flyTo([lat, lon], 15, {
+        animate: true,
+        duration: 1.5
+    });
+    
+    // Add marker
+    addMarker(lat, lon);
+    
+    // Show location info
+    showLocationInfo(lat, lon);
+    
+    // Analyze land use
+    analyzeLandUse(lat, lon);
+    
+    // Analyze traffic
+    analyzeTraffic(lat, lon);
+    
+    showLoading(false);
+    showSuccess('Location loaded successfully');
+    }
+
+    function addMarker(lat, lon) {
+    // Remove existing marker
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+    }
+
+    // Create custom marker icon
+    const customIcon = L.divIcon({
+        html: `
+        <div style="
+            background: linear-gradient(135deg, #006400, #32CD32);
+            width: 30px;
+            height: 30px;
+            border-radius: 50% 50% 50% 0;
+            border: 3px solid white;
+            box-shadow: 0 4px 15px rgba(0, 100, 0, 0.4);
+            transform: rotate(-45deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        ">
+            <div style="
+                background: white;
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                transform: rotate(45deg);
+            "></div>
+        </div>
+        `,
+        className: 'custom-marker',
+        iconSize: [30, 30],
+        iconAnchor: [15, 30]
+    });
+
+    // Add new marker with custom popup
+    currentMarker = L.marker([lat, lon], { icon: customIcon })
+        .addTo(map)
+        .bindPopup(`
+        <div style="text-align: center; padding: 20px; font-family: Arial; min-width: 200px;">
+            <h4 style="color: #006400; margin: 0 0 15px 0; font-size: 1.1rem;">📍 Selected Location</h4>
+            <div style="background: #f8fff8; padding: 10px; border-radius: 8px; margin: 10px 0;">
+                <p style="margin: 5px 0;"><strong>Latitude:</strong> ${lat}°</p>
+                <p style="margin: 5px 0;"><strong>Longitude:</strong> ${lon}°</p>
+            </div>
+            <div style="background: linear-gradient(135deg, #006400, #228B22); color: white; padding: 8px; border-radius: 5px; font-size: 0.8rem; margin-top: 10px;">
+                Pakistan State Oil - GIS
+            </div>
+        </div>
+        `)
+        .openPopup();
+    }
+
+    function setLocation(lat, lon) {
+    document.getElementById('lat').value = lat;
+    document.getElementById('lon').value = lon;
+    loadMap();
+    }
+
+    async function findFuelStations() {
+    const lat = parseFloat(document.getElementById('lat').value);
+    const lon = parseFloat(document.getElementById('lon').value);
+    
+    if (isNaN(lat) || isNaN(lon)) {
+        showError('Please set a location first.');
+        return;
+    }
+
+    showLoading(true);
+    hideMessages();
+
+    try {
+        const fuelStations = await fetchFuelStations(lat, lon);
+        fuelStationsData = fuelStations;
+        displayFuelStations(fuelStations);
+        visualizeFuelStations(fuelStations);
+        showSuccess(`Found ${fuelStations.length} fuel stations within 1km`);
+        
+        // Enable fuel stations toggle
+        document.getElementById('fuelToggle').classList.add('active');
+        showFuelStations = true;
+        
+    } catch (error) {
+        console.error('Failed to fetch fuel stations:', error);
+        showError('Unable to find fuel stations. Please try again.');
+    } finally {
+        showLoading(false);
+    }
+    }
+
+    async function fetchFuelStations(lat, lon) {
+    const query = `
+        [out:json][timeout:25];
+        (
+        node["amenity"="fuel"](around:1000,${lat},${lon});
+        way["amenity"="fuel"](around:1000,${lat},${lon});
+        node["highway"="services"](around:1000,${lat},${lon});
+        node["shop"="gas"](around:1000,${lat},${lon});
+        );
+        (._;>;);
+        out body;
+    `;
+
+    const overpassUrl = 'https://overpass-api.de/api/interpreter';
+    
+    const response = await fetch(overpassUrl, {
+        method: 'POST',
+        body: query,
+        headers: {
+        'Content-Type': 'text/plain',
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch fuel stations data');
+    }
+
+    const data = await response.json();
+    return processFuelStationsData(data, lat, lon);
+    }
+
+    function processFuelStationsData(data, centerLat, centerLon) {
+    const fuelStations = [];
+    const nodeMap = new Map();
+
+    // Build node map
+    data.elements.forEach(element => {
+        if (element.type === 'node') {
+        nodeMap.set(element.id, element);
+        }
+    });
+
+    // Process fuel stations
+    data.elements.forEach(element => {
+        if (element.tags && (element.tags.amenity === 'fuel' || element.tags.highway === 'services' || element.tags.shop === 'gas')) {
+        let lat, lon, name;
+        
+        if (element.type === 'node') {
+            lat = element.lat;
+            lon = element.lon;
+        } else if (element.type === 'way' && element.nodes && element.nodes.length > 0) {
+            // For ways, use the center point
+            const centerNode = nodeMap.get(element.nodes[Math.floor(element.nodes.length / 2)]);
+            if (centerNode) {
+            lat = centerNode.lat;
+            lon = centerNode.lon;
+            }
+        }
+
+        if (lat && lon) {
+            name = element.tags.name || 
+                  element.tags.brand || 
+                  element.tags.operator || 
+                  'Fuel Station';
+            
+            const distance = calculateDistance(centerLat, centerLon, lat, lon);
+            
+            // Only include stations within 1km
+            if (distance <= 1.0) {
+            fuelStations.push({
+                id: element.id,
+                name: name,
+                lat: lat,
+                lon: lon,
+                distance: distance,
+                tags: element.tags,
+                brand: element.tags.brand || 'Unknown',
+                operator: element.tags.operator || '',
+                address: element.tags['addr:street'] || '',
+                fuel_types: getFuelTypes(element.tags)
+            });
+            }
+        }
+        }
+    });
+
+    // Sort by distance
+    fuelStations.sort((a, b) => a.distance - b.distance);
+    
+    return fuelStations;
+    }
+
+    function getFuelTypes(tags) {
+    const fuelTypes = [];
+    
+    if (tags['fuel:diesel'] === 'yes') fuelTypes.push('Diesel');
+    if (tags['fuel:petrol'] === 'yes') fuelTypes.push('Petrol');
+    if (tags['fuel:octane_91'] === 'yes') fuelTypes.push('Regular');
+    if (tags['fuel:octane_95'] === 'yes') fuelTypes.push('Premium');
+    if (tags['fuel:lpg'] === 'yes') fuelTypes.push('LPG');
+    if (tags['fuel:cng'] === 'yes') fuelTypes.push('CNG');
+    
+    return fuelTypes.length > 0 ? fuelTypes : ['Fuel Available'];
+    }
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+    }
+
+    function displayFuelStations(stations) {
+    const panel = document.getElementById('fuelStationsPanel');
+    const list = document.getElementById('fuelStationsList');
+    
+    if (stations.length === 0) {
+        list.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #666;">
+            <h3>No fuel stations found within 1km radius</h3>
+            <p>Try searching in a different location or expand your search area.</p>
+        </div>
+        `;
+    } else {
+        list.innerHTML = `
+        <div class="fuel-stations-grid">
+            ${stations.map(station => `
+            <div class="fuel-station-item" onclick="focusOnFuelStation(${station.lat}, ${station.lon}, '${station.name.replace(/'/g, "\\'")}')">
+                <div class="fuel-station-name">${station.name}</div>
+                <div class="fuel-station-distance">${station.distance.toFixed(3)} km away</div>
+                <div style="font-size: 0.9rem; color: #666; margin: 5px 0;">
+                    <strong>Brand:</strong> ${station.brand}
+                </div>
+                <div style="font-size: 0.9rem; color: #666; margin: 5px 0;">
+                    <strong>Fuels:</strong> ${station.fuel_types.join(', ')}
+                </div>
+                <div class="fuel-station-coords">${station.lat.toFixed(4)}, ${station.lon.toFixed(4)}</div>
+                <div style="margin-top: 8px; font-size: 0.8rem;">
+                    <button onclick="getDirections(${station.lat}, ${station.lon})" style="
+                        background: #FF6B6B; 
+                        color: white; 
+                        border: none; 
+                        padding: 5px 10px; 
+                        border-radius: 5px; 
+                        cursor: pointer;
+                        font-size: 0.8rem;
+                    ">Get Directions</button>
+                </div>
+            </div>
+            `).join('')}
+        </div>
+        `;
+    }
+    
+    panel.classList.add('show');
+    }
+
+    function visualizeFuelStations(stations) {
+    // Clear existing fuel stations
+    fuelStationsLayer.clearLayers();
+    
+    stations.forEach(station => {
+        // Create custom fuel station icon
+        const fuelIcon = L.divIcon({
+        html: `
+            <div style="
+            background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 2px 10px rgba(255, 107, 107, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 10px;
+            ">⛽</div>
+        `,
+        className: 'fuel-station-marker',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+        });
+
+        const marker = L.marker([station.lat, station.lon], { icon: fuelIcon })
+        .addTo(fuelStationsLayer)
+        .bindPopup(`
+            <div style="padding: 15px; min-width: 200px; font-family: Arial;">
+            <h4 style="color: #C44569; margin: 0 0 10px 0;">⛽ ${station.name}</h4>
+            <div style="background: #fff8f8; padding: 10px; border-radius: 5px; margin: 8px 0;">
+                <div style="margin: 4px 0;"><strong>Distance:</strong> ${station.distance.toFixed(3)} km</div>
+                <div style="margin: 4px 0;"><strong>Brand:</strong> ${station.brand}</div>
+                <div style="margin: 4px 0;"><strong>Available Fuels:</strong></div>
+                <div style="font-size: 0.9rem; color: #666;">${station.fuel_types.join(', ')}</div>
+            </div>
+            <div style="margin: 8px 0; font-size: 0.85rem; color: #666;">
+                ${station.lat.toFixed(6)}, ${station.lon.toFixed(6)}
+            </div>
+            <button onclick="getDirections(${station.lat}, ${station.lon})" style="
+                background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+                color: white;
+                border: none;
+                padding: 8px 15px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-weight: bold;
+                width: 100%;
+                margin-top: 8px;
+            ">Get Directions</button>
+            </div>
+        `);
+
+        // Add click event for distance calculation
+        marker.on('click', function() {
+        if (currentLocation) {
+            updateDistanceInfo({ lat: station.lat, lng: station.lon }, station.name);
+        }
+        });
+    });
+
+    // Add fuel stations layer to map if toggle is active
+    if (showFuelStations && !map.hasLayer(fuelStationsLayer)) {
+        fuelStationsLayer.addTo(map);
+    }
+    }
+
+    function focusOnFuelStation(lat, lon, name) {
+    map.flyTo([lat, lon], 17, {
+        animate: true,
+        duration: 1
+    });
+    
+    if (currentLocation) {
+        const distance = calculateDistance(currentLocation.lat, currentLocation.lon, lat, lon);
+        showSuccess(`${name} is ${distance.toFixed(3)} km away`);
+        updateDistanceInfo({ lat: lat, lng: lon }, name);
+    }
+    }
+
+    function getDirections(lat, lon) {
+    if (currentLocation) {
+        const url = `https://www.google.com/maps/dir/${currentLocation.lat},${currentLocation.lon}/${lat},${lon}`;
+        window.open(url, '_blank');
+    } else {
+        showError('Please set your starting location first');
+    }
+    }
+
+    function updateDistanceInfo(latlng, name = '') {
+    const distanceInfo = document.getElementById('distanceInfo');
+    
+    if (currentLocation) {
+        const distance = calculateDistance(currentLocation.lat, currentLocation.lon, latlng.lat, latlng.lng);
+        distanceInfo.innerHTML = `
+        <div style="font-weight: bold; margin-bottom: 5px;">
+            ${name ? `📍 ${name}` : '📍 Distance from selected point'}
+        </div>
+        <div>${distance.toFixed(3)} km</div>
+        <div style="font-size: 0.8rem; color: #666; margin-top: 5px;">
+            ${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}
+        </div>
+        `;
+        distanceInfo.style.display = 'block';
+    } else {
+        distanceInfo.style.display = 'none';
+    }
+    }
+
+    function updateFuelStationDistances() {
+    if (currentLocation && fuelStationsData.length > 0) {
+        // Recalculate distances
+        fuelStationsData.forEach(station => {
+        station.distance = calculateDistance(
+            currentLocation.lat, 
+            currentLocation.lon, 
+            station.lat, 
+            station.lon
+        );
+        });
+        
+        // Sort by distance
+        fuelStationsData.sort((a, b) => a.distance - b.distance);
+        
+        // Update display
+        displayFuelStations(fuelStationsData);
+    }
+    }
+
+    // Control functions
+    function toggleLandUse() {
+    const toggle = document.getElementById('landUseToggle');
+    showLandUse = !showLandUse;
+    
+    if (showLandUse) {
+        map.addLayer(landUseLayer);
+        toggle.classList.add('active');
+    } else {
+        map.removeLayer(landUseLayer);
+        toggle.classList.remove('active');
+    }
+    }
+
+    function toggleTraffic() {
+    const toggle = document.getElementById('trafficToggle');
+    showTraffic = !showTraffic;
+    
+    if (showTraffic) {
+        map.addLayer(trafficLayer);
+        toggle.classList.add('active');
+    } else {
+        map.removeLayer(trafficLayer);
+        toggle.classList.remove('active');
+    }
+    }
+
+    function toggleFuelStations() {
+    const toggle = document.getElementById('fuelToggle');
+    showFuelStations = !showFuelStations;
+    
+    if (showFuelStations) {
+        map.addLayer(fuelStationsLayer);
+        toggle.classList.add('active');
+    } else {
+        map.removeLayer(fuelStationsLayer);
+        toggle.classList.remove('active');
+    }
+    }
+
+    function toggleSatellite() {
+    if (map.hasLayer(currentBaseLayer)) {
+        map.removeLayer(currentBaseLayer);
+        map.addLayer(satelliteLayer);
+        currentBaseLayer = satelliteLayer;
+    } else {
+        map.removeLayer(satelliteLayer);
+        currentBaseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap | Pakistan State Oil',
+        maxZoom: 19
+        }).addTo(map);
+    }
+    }
+
+    // Existing land use and traffic analysis functions
+    async function analyzeLandUse(lat, lon) {
+    try {
+        const landUseData = await fetchLandUseData(lat, lon);
+        const populationData = await estimatePopulation(lat, lon, landUseData);
+        window.currentLandUseData = landUseData;
+        window.currentPopulationData = populationData;
+        updateLocationDisplay();
+        visualizeLandUse(landUseData);
+    } catch (error) {
+        console.error('Land use analysis failed:', error);
+        showError('Unable to analyze land use data. Please try again.');
+    }
+    }
+
+    async function analyzeTraffic(lat, lon) {
+    try {
+        const trafficData = await fetchTrafficData(lat, lon);
+        window.currentTrafficData = trafficData;
+        updateLocationDisplay();
+        visualizeTraffic(trafficData);
+    } catch (error) {
+        console.error('Traffic analysis failed:', error);
+        console.log('Traffic data not available for this location');
+    }
+    }
+
+    async function fetchLandUseData(lat, lon) {
+    const query = `
+        [out:json][timeout:25];
+        (
+        way["landuse"~"residential|commercial|industrial|retail|farmland|forest|recreational|educational|healthcare"](around:1000,${lat},${lon});
+        relation["landuse"~"residential|commercial|industrial|retail|farmland|forest|recreational|educational|healthcare"](around:1000,${lat},${lon});
+        way["amenity"~"school|hospital|university|clinic|pharmacy|bank|restaurant|fuel"](around:1000,${lat},${lon});
+        way["building"~"residential|commercial|industrial|retail|office|hospital|school"](around:1000,${lat},${lon});
+        );
+        (._;>;);
+        out body;
+    `;
+
+    const overpassUrl = 'https://overpass-api.de/api/interpreter';
+    
+    const response = await fetch(overpassUrl, {
+        method: 'POST',
+        body: query,
+        headers: {
+        'Content-Type': 'text/plain',
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch land use data');
+    }
+
+    const data = await response.json();
+    return processLandUseData(data);
+    }
+
+    function processLandUseData(data) {
+    const landUseStats = {};
+    const features = [];
+
+    data.elements.forEach(element => {
+        if (element.type === 'way' && element.nodes) {
+        const landUse = element.tags?.landuse || element.tags?.amenity || element.tags?.building;
+        
+        if (landUse) {
+            landUseStats[landUse] = (landUseStats[landUse] || 0) + 1;
+            
+            // Create feature for visualization
+            const coords = [];
+            element.nodes.forEach(nodeId => {
+            const node = data.elements.find(el => el.type === 'node' && el.id === nodeId);
+            if (node) {
+                coords.push([node.lat, node.lon]);
+            }
+            });
+            
+            if (coords.length > 2) {
+            features.push({
+                type: landUse,
+                coordinates: coords,
+                tags: element.tags
+            });
+            }
+        }
+        }
+    });
+
+    return {
+        stats: landUseStats,
+        features: features,
+        totalFeatures: Object.values(landUseStats).reduce((a, b) => a + b, 0)
+    };
+    }
+
+    async function estimatePopulation(lat, lon, landUseData) {
+    try {
+        const residentialCount = landUseData.stats.residential || 0;
+        const householdSize = 4.5;
+        const residentialEstimate = residentialCount * householdSize * 12;
+
+        let densityMultiplier = 1;
+        
+        if (landUseData.stats.commercial > 5) densityMultiplier += 0.5;
+        if (landUseData.stats.industrial > 3) densityMultiplier += 0.3;
+        if (landUseData.stats.educational > 2) densityMultiplier += 0.4;
+        if (landUseData.stats.healthcare > 1) densityMultiplier += 0.2;
+
+        const basePopulation = 1000;
+        const adjustedEstimate = Math.round(basePopulation * densityMultiplier);
+
+        return {
+        residential: Math.round(residentialEstimate),
+        density: Math.round(adjustedEstimate),
+        external: null,
+        final: Math.max(residentialEstimate, adjustedEstimate)
+        };
+    } catch (error) {
+        console.error('Population estimation failed:', error);
+        return {
+        residential: 0,
+        density: 0,
+        external: null,
+        final: 'Unable to estimate'
+        };
+    }
+    }
+
+    async function fetchTrafficData(lat, lon) {
+    const roadsQuery = `
+        [out:json][timeout:25];
+        (
+        way["highway"~"primary|secondary|tertiary|residential|trunk|motorway|unclassified"](around:2000,${lat},${lon});
+        );
+        (._;>;);
+        out body;
+    `;
+
+    const overpassUrl = 'https://overpass-api.de/api/interpreter';
+    
+    try {
+        const roadsResponse = await fetch(overpassUrl, {
+        method: 'POST',
+        body: roadsQuery,
+        headers: {
+            'Content-Type': 'text/plain',
+        },
+        });
+
+        if (!roadsResponse.ok) {
+        throw new Error('Failed to fetch roads data');
+        }
+
+        const roadsData = await roadsResponse.json();
+        const processedRoads = processRoadsData(roadsData);
+        const trafficInfo = await getTrafficFromMultipleSources(lat, lon, processedRoads);
+
+        return {
+        roads: processedRoads,
+        trafficInfo: trafficInfo,
+        timestamp: new Date().toISOString()
+        };
+
+    } catch (error) {
+        console.error('Error fetching traffic data:', error);
+        throw error;
+    }
+    }
+
+    function processRoadsData(data) {
+    const roads = [];
+    const nodeMap = new Map();
+
+    data.elements.forEach(element => {
+        if (element.type === 'node') {
+        nodeMap.set(element.id, { lat: element.lat, lon: element.lon });
+        }
+    });
+
+    data.elements.forEach(element => {
+        if (element.type === 'way' && element.tags?.highway) {
+        const coords = [];
+        element.nodes.forEach(nodeId => {
+            const node = nodeMap.get(nodeId);
+            if (node) {
+            coords.push([node.lat, node.lon]);
+            }
+        });
+
+        if (coords.length > 1) {
+            roads.push({
+            id: element.id,
+            name: element.tags.name || `${element.tags.highway} road`,
+            highway: element.tags.highway,
+            coordinates: coords,
+            maxSpeed: element.tags.maxspeed,
+            lanes: element.tags.lanes,
+            surface: element.tags.surface,
+            tags: element.tags
+            });
+        }
+        }
+    });
+
+    return roads;
+    }
+
+    async function getTrafficFromMultipleSources(lat, lon, roads) {
+    const trafficData = [];
+    const currentHour = new Date().getHours();
+    const isRushHour = (currentHour >= 7 && currentHour <= 9) || (currentHour >= 17 && currentHour <= 19);
+
+    roads.forEach(road => {
+        const trafficLevel = simulateTrafficLevel(road, isRushHour);
+        trafficData.push({
+        roadId: road.id,
+        roadName: road.name,
+        highway: road.highway,
+        trafficLevel: trafficLevel.level,
+        speed: trafficLevel.speed,
+        color: trafficLevel.color,
+        coordinates: road.coordinates
+        });
+    });
+
+    return trafficData;
+    }
+
+    function simulateTrafficLevel(road, isRushHour) {
+    const roadTypes = {
+        'motorway': { baseSpeed: 100, congestionFactor: 0.8 },
+        'trunk': { baseSpeed: 80, congestionFactor: 0.7 },
+        'primary': { baseSpeed: 60, congestionFactor: 0.6 },
+        'secondary': { baseSpeed: 50, congestionFactor: 0.5 },
+        'tertiary': { baseSpeed: 40, congestionFactor: 0.4 },
+        'residential': { baseSpeed: 30, congestionFactor: 0.3 },
+        'unclassified': { baseSpeed: 30, congestionFactor: 0.3 }
+    };
+
+    const roadType = roadTypes[road.highway] || roadTypes['unclassified'];
+    let speed = roadType.baseSpeed;
+    let level = 'Free';
+    let color = '#4caf50';
+
+    if (isRushHour) {
+        speed *= roadType.congestionFactor;
+        
+        if (speed < 15) {
+        level = 'Heavy';
+        color = '#f44336';
+        } else if (speed < 25) {
+        level = 'Moderate';
+        color = '#ff5722';
+        } else if (speed < 35) {
+        level = 'Light';
+        color = '#ff9800';
+        }
+    }
+
+    const randomFactor = 0.8 + Math.random() * 0.4;
+    speed = Math.round(speed * randomFactor);
+
+    return { level, speed, color };
+    }
+
+    function visualizeTraffic(trafficData) {
+    trafficLayer.clearLayers();
+
+    trafficData.trafficInfo.forEach(traffic => {
+        if (traffic.coordinates && traffic.coordinates.length > 1) {
+        const line = L.polyline(traffic.coordinates, {
+            color: traffic.color,
+            weight: 4,
+            opacity: 0.8
+        }).addTo(trafficLayer);
+
+        line.bindPopup(`
+            <div style="padding: 10px; min-width: 200px;">
+            <h4 style="margin: 0 0 8px 0; color: #006400;">${traffic.roadName}</h4>
+            <div style="margin: 4px 0;">
+                <strong>Road Type:</strong> ${traffic.highway.toUpperCase()}
+            </div>
+            <div style="margin: 4px 0;">
+                <strong>Traffic Level:</strong> 
+                <span style="color: ${traffic.color}; font-weight: bold;">${traffic.trafficLevel}</span>
+            </div>
+            <div style="margin: 4px 0;">
+                <strong>Estimated Speed:</strong> ${traffic.speed} km/h
+            </div>
+            </div>
+        `);
+        }
+    });
+    }
+
+    function visualizeLandUse(landUseData) {
+    landUseLayer.clearLayers();
+
+    const colorMap = {
+        residential: '#FF6B6B',
+        commercial: '#4ECDC4',
+        industrial: '#45B7D1',
+        retail: '#96CEB4',
+        farmland: '#FECA57',
+        forest: '#26A69A',
+        recreational: '#FF9FF3',
+        educational: '#54A0FF',
+        healthcare: '#5F27CD',
+        school: '#54A0FF',
+        hospital: '#5F27CD',
+        building: '#95A5A6'
+    };
+
+    landUseData.features.forEach(feature => {
+        const color = colorMap[feature.type] || '#95A5A6';
+        
+        const polygon = L.polygon(feature.coordinates, {
+        color: color,
+        weight: 2,
+        opacity: 0.8,
+        fillColor: color,
+        fillOpacity: 0.3
+        }).addTo(landUseLayer);
+
+        polygon.bindPopup(`
+        <div style="padding: 10px;">
+            <h4 style="margin: 0 0 5px 0; color: #006400;">${feature.type.toUpperCase()}</h4>
+            <p style="margin: 0; font-size: 0.9rem;">Land use classification</p>
+        </div>
+        `);
+    });
+    }
+
+    function showLocationInfo(lat, lon) {
+    const infoPanel = document.getElementById('infoPanel');
+    const locationInfo = document.getElementById('locationInfo');
+    
+    locationInfo.innerHTML = `
+        <div class="coordinate-display">
+        <div class="coordinate-row">
+            <span class="coordinate-label">Decimal Degrees:</span>
+            <span class="coordinate-value">${lat}°, ${lon}°</span>
+        </div>
+        <div class="coordinate-row">
+            <span class="coordinate-label">Degrees Minutes Seconds:</span>
+            <span class="coordinate-value">${convertToDMS(lat, lon)}</span>
+        </div>
+        <div class="coordinate-row">
+            <span class="coordinate-label">Map Zoom Level:</span>
+            <span class="coordinate-value">${map.getZoom()}</span>
+        </div>
+        </div>
+        <div class="analysis-loading">
+        Analyzing land use, population, and traffic data...
+        </div>
+    `;
+    
+    infoPanel.classList.add('show');
+    }
+
+    function updateLocationDisplay() {
+    const locationInfo = document.getElementById('locationInfo');
+    const lat = document.getElementById('lat').value;
+    const lon = document.getElementById('lon').value;
+    
+    const landUseData = window.currentLandUseData;
+    const populationData = window.currentPopulationData;
+    const trafficData = window.currentTrafficData;
+
+    let landUseHtml = '';
+    if (landUseData && landUseData.totalFeatures > 0) {
+        landUseHtml = `
+        <div class="land-use-section">
+            <div class="land-use-title">Land Use Analysis (1km radius)</div>
+            <div class="land-use-grid">
+        `;
+        
+        Object.entries(landUseData.stats).forEach(([type, count]) => {
+        landUseHtml += `
+            <div class="land-use-item">
+            <div class="land-use-type">${type.replace('_', ' ')}</div>
+            <div class="land-use-count">${count}</div>
+            </div>
+        `;
+        });
+        
+        landUseHtml += `
+            </div>
+            <div style="margin-top: 10px; font-size: 0.9rem; color: #666;">
+            Total features analyzed: ${landUseData.totalFeatures}
+            </div>
+        </div>
+        `;
+    } else if (landUseData) {
+        landUseHtml = `
+        <div class="land-use-section">
+            <div class="land-use-title">Land Use Analysis</div>
+            <div style="text-align: center; color: #666; padding: 20px;">
+            No detailed land use data available for this location
+            </div>
+        </div>
+        `;
+    }
+
+    let populationHtml = '';
+    if (populationData) {
+        populationHtml = `
+        <div class="population-section">
+            <div class="population-title">Population Estimate (2km radius)</div>
+            <div class="population-estimate">${formatNumber(populationData.final)} people</div>
+            <div style="font-size: 0.8rem; color: #666; text-align: center;">
+            ${populationData.external ? 'Based on external data sources' : 'Estimated from land use patterns'}
+            </div>
+        </div>
+        `;
+    }
+
+    let trafficHtml = '';
+    if (trafficData && trafficData.trafficInfo && trafficData.trafficInfo.length > 0) {
+        const trafficSummary = generateTrafficSummary(trafficData.trafficInfo);
+        
+        trafficHtml = `
+        <div class="traffic-section">
+            <div class="traffic-title">Traffic Analysis (2km radius)</div>
+            <div class="traffic-grid">
+        `;
+
+        trafficSummary.forEach(item => {
+        trafficHtml += `
+            <div class="traffic-item">
+            <div class="traffic-status traffic-${item.level.toLowerCase()}">${item.level} Traffic</div>
+            <div class="traffic-speed">${item.avgSpeed} km/h</div>
+            <div class="traffic-road">${item.count} ${item.type} road(s)</div>
+            </div>
+        `;
+        });
+
+        trafficHtml += `
+            </div>
+            <div class="traffic-legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #4caf50;"></div>
+                <span>Free Flow</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ff9800;"></div>
+                <span>Light Traffic</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ff5722;"></div>
+                <span>Moderate Traffic</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #f44336;"></div>
+                <span>Heavy Traffic</span>
+            </div>
+            </div>
+            <div style="margin-top: 10px; font-size: 0.8rem; color: #666; text-align: center;">
+            Roads analyzed: ${trafficData.trafficInfo.length} | Updated: ${new Date(trafficData.timestamp).toLocaleTimeString()}
+            </div>
+        </div>
+        `;
+    } else if (trafficData) {
+        trafficHtml = `
+        <div class="traffic-section">
+            <div class="traffic-title">Traffic Analysis</div>
+            <div style="text-align: center; color: #666; padding: 20px;">
+            No major roads found in this area
+            </div>
+        </div>
+        `;
+    }
+    
+    locationInfo.innerHTML = `
+        <div class="coordinate-display">
+        <div class="coordinate-row">
+            <span class="coordinate-label">Decimal Degrees:</span>
+            <span class="coordinate-value">${lat}°, ${lon}°</span>
+        </div>
+        <div class="coordinate-row">
+            <span class="coordinate-label">Degrees Minutes Seconds:</span>
+            <span class="coordinate-value">${convertToDMS(lat, lon)}</span>
+        </div>
+        <div class="coordinate-row">
+            <span class="coordinate-label">Map Zoom Level:</span>
+            <span class="coordinate-value">${map.getZoom()}</span>
+        </div>
+        </div>
+        ${landUseHtml}
+        ${populationHtml}
+        ${trafficHtml}
+        <div style="margin-top: 15px; padding: 15px; background: linear-gradient(135deg, #f8fff8, #e8f5e8); border-radius: 8px; border-left: 4px solid #006400;">
+        <strong>🎯 Instructions:</strong><br>
+        <small>• Click anywhere on the map to set new coordinates<br>
+        • Use quick location buttons for major cities<br>
+        • Click "Find Fuel Stations" to locate nearby pumps<br>
+        • Use map controls to toggle different layers<br>
+        • Click on fuel stations for directions</small>
+        </div>
+    `;
+    }
+
+    function generateTrafficSummary(trafficInfo) {
+    const summary = {};
+    
+    trafficInfo.forEach(traffic => {
+        const key = traffic.highway;
+        if (!summary[key]) {
+        summary[key] = {
+            type: key,
+            levels: {},
+            speeds: [],
+            count: 0
+        };
+        }
+        
+        summary[key].count++;
+        summary[key].speeds.push(traffic.speed);
+        summary[key].levels[traffic.trafficLevel] = (summary[key].levels[traffic.trafficLevel] || 0) + 1;
+    });
+
+    return Object.values(summary).map(item => {
+        const avgSpeed = Math.round(item.speeds.reduce((a, b) => a + b, 0) / item.speeds.length);
+        const dominantLevel = Object.keys(item.levels).reduce((a, b) => 
+        item.levels[a] > item.levels[b] ? a : b
+        );
+        
+        return {
+        type: item.type,
+        count: item.count,
+        avgSpeed: avgSpeed,
+        level: dominantLevel
+        };
+    }).sort((a, b) => b.count - a.count);
+    }
+
+    function convertToDMS(lat, lon) {
+    function toDMS(coord, isLat) {
+        const absolute = Math.abs(coord);
+        const degrees = Math.floor(absolute);
+        const minutes = Math.floor((absolute - degrees) * 60);
+        const seconds = Math.round(((absolute - degrees) * 60 - minutes) * 60);
+        
+        const direction = isLat ? (coord >= 0 ? 'N' : 'S') : (coord >= 0 ? 'E' : 'W');
+        return `${degrees}°${minutes}'${seconds}"${direction}`;
+    }
+    
+    return `${toDMS(lat, true)}, ${toDMS(lon, false)}`;
+    }
+
+    function formatNumber(num) {
+    if (typeof num === 'string') return num;
+    return num.toLocaleString();
+    }
+
+    function showError(message) {
+    hideMessages();
+    const errorElement = document.getElementById('errorMessage');
+    errorElement.textContent = message;
+    errorElement.style.display = 'block';
+    
+    setTimeout(() => {
+        hideMessages();
+    }, 5000);
+    }
+
+    function showSuccess(message) {
+    hideMessages();
+    const successElement = document.getElementById('successMessage');
+    successElement.textContent = message;
+    successElement.style.display = 'block';
+    
+    setTimeout(() => {
+        hideMessages();
+    }, 3000);
+    }
+
+    function hideMessages() {
+    document.getElementById('errorMessage').style.display = 'none';
+    document.getElementById('successMessage').style.display = 'none';
+    }
+
+    function showLoading(show) {
+    document.getElementById('loading').style.display = show ? 'block' : 'none';
+    }
+
+    // Initialize map when page loads
+    window.addEventListener('load', function() {
+    initMap();
+    
+    // Set initial toggle states
+    document.getElementById('landUseToggle').classList.add('active');
+    document.getElementById('trafficToggle').classList.add('active');
+    });
+
+    // Add keyboard support
+    document.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        loadMap();
+    }
+    });
+
+    // Add some sample PSO locations
+    const psoLocations = [
+    { name: "PSO Clifton", lat: 24.8138, lon: 67.0299 },
+    { name: "PSO Gulshan", lat: 24.9265, lon: 67.0822 },
+    { name: "PSO Saddar", lat: 24.8546, lon: 67.0062 },
+    { name: "PSO DHA", lat: 24.8059, lon: 67.0761 },
+    { name: "PSO University Road", lat: 24.9324, lon: 67.1165 }
+    ];
+
+    // Enhanced fuel station data with PSO locations
+    function addPSOLocations(stations) {
+    psoLocations.forEach(pso => {
+        if (currentLocation) {
+        const distance = calculateDistance(currentLocation.lat, currentLocation.lon, pso.lat, pso.lon);
+        if (distance <= 1.0) {
+            stations.push({
+            id: `pso_${pso.name.replace(/\s+/g, '_')}`,
+            name: pso.name,
+            lat: pso.lat,
+            lon: pso.lon,
+            distance: distance,
+            brand: 'Pakistan State Oil',
+            operator: 'PSO',
+            fuel_types: ['Petrol', 'Diesel', 'Hi-Octane', 'CNG'],
+            tags: { amenity: 'fuel', brand: 'PSO' }
+            });
+        }
+        }
+    });
+    
+    return stations.sort((a, b) => a.distance - b.distance);
+    }
+
+    // Override the processFuelStationsData function to include PSO data
+    const originalProcessFuelStationsData = processFuelStationsData;
+    processFuelStationsData = function(data, centerLat, centerLon) {
+    let stations = originalProcessFuelStationsData(data, centerLat, centerLon);
+    
+    // Add PSO locations
+    currentLocation = { lat: centerLat, lon: centerLon };
+    stations = addPSOLocations(stations);
+    
+    return stations;
+    };
+
+    // Add custom map styles
+    function addCustomMapStyles() {
+    // Add custom CSS for enhanced map appearance
+    const style = document.createElement('style');
+    style.textContent = `
+        .leaflet-popup-content-wrapper {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .leaflet-popup-tip {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        }
+        
+        .leaflet-control-zoom a {
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(10px);
+        border-radius: 8px;
+        }
+        
+        .leaflet-control-attribution {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(10px);
+        border-radius: 8px;
+        }
+        
+        .custom-marker {
+        animation: markerPulse 2s infinite;
+        }
+        
+        @keyframes markerPulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+        }
+        
+        .fuel-station-marker {
+        animation: fuelPulse 3s infinite;
+        }
+        
+        @keyframes fuelPulse {
+        0%, 100% { transform: scale(1); box-shadow: 0 2px 10px rgba(255, 107, 107, 0.4); }
+        50% { transform: scale(1.05); box-shadow: 0 4px 20px rgba(255, 107, 107, 0.6); }
+        }
+    `;
+    document.head.appendChild(style);
+    }
+
+    // Initialize custom styles when DOM is loaded
+    document.addEventListener('DOMContentLoaded', addCustomMapStyles);
+</script>
+</body>
+</html>
